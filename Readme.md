@@ -88,6 +88,19 @@ Simplifications:
 
 The other methods do not require simplifications.
 
+### Intersection: `re1 & re2`
+
+The `&` operator returns an intersection of two languages.
+
+Simplifications:
+
+  - `∅ & r => ∅`
+  - `r & ∅ => ∅`
+  - `{a} & {b} => {a ∩ b}`
+  - `α* & r => r`
+  - `r & α* => r`
+  - `r & r => r`
+
 ## Part 2: Derivative machine
 
 You need to implement the virtual machine for computing derivatives, as talked about in class. You will implement the following methods:
@@ -115,5 +128,19 @@ You must use only the purely functional subset of Scala. This means that you are
 If you use any mutation, you will automatically fail the assignment.
 
 Your code must compile. Invoking `compile` and `test:compile` in the SBT shell (as described in the first tutorial) must succeed. Otherwise, you will automatically fail the assignment.
+
+## Submission
+
+We will use only the contents of the `src` directory for grading so
+make sure that all your code is in the proper directories under it.  You
+will use `turnin` on CSIL to submit your assignment.  To submit your
+assignment, on the root directory of the repository you cloned,
+
+  1. Make sure that you run the unit tests on CSIL and get the
+       result you expect.
+  2. run `turnin assign2@cs162 src`.
+  3. Read the instructions on screen and the list of files you are
+       submitting carefully and submit the assignment only if you are
+       sure that you are submitting all the files.
 
 Good luck!
