@@ -14,41 +14,87 @@ object `package` {
 
     // Concatenate 're' with 'other', simplifying if possible (assumes that 're'
     // and 'other' have already been simplified).
-    def ~(other: Regex): Regex = ???
+    def ~(other: Regex): Regex = (re, other) match {
+      case (r, `∅`) => ∅
+      case (`∅`, r) => ∅
+      case (r, `ε`) => r
+      case (`ε`, r) => r
+      case (r1, r2) => Concatenate(r1, r2)
+    }
 
     // Union 're' with 'other', simplifying if possible (assumes that 're' and
     // 'other' have already been simplified).
-    def |(other: Regex): Regex = ???
+    def |(other: Regex): Regex = (re, other) match {
+      case (r, `∅`) => r
+      case (`∅`, r) => r
+      case (KleeneStar(r), `ε`) => KleeneStar(r)
+      case (`ε`, KleeneStar(r)) => KleeneStar(r)
+      case (KleeneStar(`α`), r) => KleeneStar(`α`)
+      case (r, KleeneStar(`α`)) => KleeneStar(`α`)
+      case (r1, r2) if r1 == r2 => r1
+      case (r1, r2) => Union(r1, r2)
+    }
 
     // Apply the Kleene star to 're', simplifying if possible (assumes that 're'
     // has already been simplified).
-    def * : Regex = ???
+    def * : Regex = re match {
+      case KleeneStar(`∅`) => `ε`
+      case KleeneStar(`ε`) => `ε`
+      case KleeneStar(r) => KleeneStar(r)
+      case r => KleeneStar(r)
+    }
 
     // Complement 're', simplifying if possible (assumes that 're' has already
     // been simplified).
-    def unary_! : Regex = ???
+    def unary_! : Regex = re match {
+      case `∅` => KleeneStar(`α`)
+      case `ε` => `α` ~ `α`.*
+      case r => Complement(r)
+    }
 
     // Intersect 're' with 'other', simplifying if possible (assumes that 're'
     // and 'other' have already been simplified).
-    def &(other: Regex): Regex = ???
+    def &(other: Regex): Regex = Intersect(re, other)
 
     // Shorthand for 1 or more repetitions of re regex.
-    def + : Regex = ???
+    def + : Regex = re ~ re.*
 
     // Shorthand for 0 or 1 instances of re regex.
-    def ? : Regex = ???
+    def ? : Regex = `ε` | re
 
     // Shorthand for exactly 'num' repetitions of re regex.
-    def ^(num: Int): Regex = ???
+    def ^(num: Int): Regex = {
+      def rep(accRegex: Regex, num: Int) : Regex = num match {
+        case 0 => accRegex
+        case n => rep(accRegex ~ re, n -1)
+      }
+
+      require(num >= 0)
+
+      rep(`ε`, num)
+    }
 
     // Shorthand for at least 'min' repetitions of re regex.
-    def >=(min: Int): Regex = ???
+    def >=(min: Int): Regex = Concatenate(re ^ min, re.*)
 
     // Shorthand for at most 'max' repetitions of re regex.
-    def <=(max: Int): Regex = ???
+    def <=(max: Int): Regex = {
+      def rep(accRegex: Regex, num: Int): Regex = num match {
+        case `max` => accRegex | (re ^ num)
+        case n => rep(accRegex | re ^ num, num + 1)
+      }
+
+      require(max >= 0)
+
+      max match {
+        case 0 => `ε`
+        case n => rep(`ε`, 1)
+      }
+
+    }
 
     // Shorthand for at least 'min' but at most 'max' repetitions of re regex.
-    def <>(min: Int, max: Int): Regex = ???
+    def <>(min: Int, max: Int): Regex = (re >= min) & (re <= max)
   }
 
   // Add convenient methods to String for building simple regular expressions.
