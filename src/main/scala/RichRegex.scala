@@ -27,6 +27,7 @@ object `package` {
     def |(other: Regex): Regex = (re, other) match {
       case (r, `∅`) => r
       case (`∅`, r) => r
+      case (Chars(r1), Chars(r2)) => Chars(r1.construct(r1.contents.union(r2.contents).distinct))
       case (KleeneStar(r), `ε`) => KleeneStar(r)
       case (`ε`, KleeneStar(r)) => KleeneStar(r)
       case (KleeneStar(`α`), r) => KleeneStar(`α`)
@@ -38,10 +39,10 @@ object `package` {
     // Apply the Kleene star to 're', simplifying if possible (assumes that 're'
     // has already been simplified).
     def * : Regex = re match {
-      case KleeneStar(`∅`) => `ε`
-      case KleeneStar(`ε`) => `ε`
+      case `∅` => `ε`
+      case `ε` => `ε`
       case KleeneStar(r) => KleeneStar(r)
-      case r => KleeneStar(r)
+      case r: Regex => KleeneStar(r)
     }
 
     // Complement 're', simplifying if possible (assumes that 're' has already
@@ -49,12 +50,21 @@ object `package` {
     def unary_! : Regex = re match {
       case `∅` => KleeneStar(`α`)
       case `ε` => `α` ~ `α`.*
-      case r => Complement(r)
+      case Complement(r) => r
+      case r : Regex => Complement(r)
     }
 
     // Intersect 're' with 'other', simplifying if possible (assumes that 're'
     // and 'other' have already been simplified).
-    def &(other: Regex): Regex = Intersect(re, other)
+    def &(other: Regex): Regex = (re, other) match {
+      case (`∅`, r) => `∅`
+      case (r, `∅`) => `∅`
+      case (Chars(r1), Chars(r2)) => Chars(r1 & r2)
+      case (KleeneStar(`α`), r) => r
+      case (r, KleeneStar(`α`)) => r
+      case (r1, r2) if r1 == r2 => r1
+      case (r1, r2) => Intersect(r1, r2)
+    }
 
     // Shorthand for 1 or more repetitions of re regex.
     def + : Regex = re ~ re.*
