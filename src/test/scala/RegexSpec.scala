@@ -145,11 +145,60 @@ class RegexSpec extends FlatSpec with Matchers {
 
   behavior of "nullable"
 
-  it should "recognize a nullable regex 1" in { pending }
+  it should "recognize a nullable regex 1" in {
+    `ε`.nullable should equal (`ε`)
+  }
 
-  // more tests...
+  it should "recognize a nullable regex 2" in {
+    c.*.nullable should equal (`ε`)
+  }
 
-  it should "recognize a non-nullable regex 1" in { pending }
+  it should "recognize a nullable regex 3" in {
+    (c.* ~ d.*).nullable should equal (`ε`)
+  }
 
-  // more tests...
+  it should "recognize a nullable regex 4" in {
+    (`ε` ~ d.*).nullable should equal (`ε`)
+  }
+
+  it should "recognize a nullable regex 5" in {
+    (`ε` | b).nullable should equal (`ε`)
+  }
+
+  it should "recognize a nullable regex 6" in {
+    (!b).nullable should equal (`ε`)
+  }
+
+  it should "recognize a nullable regex 7" in {
+    (`ε` & d.*).nullable should equal (`ε`)
+  }
+
+  it should "recognize a non-nullable regex 1" in {
+    `∅`.nullable should equal (`∅`)
+  }
+
+  it should "recognize a non-nullable regex 2" in {
+    (!c.*).nullable should equal (`∅`)
+  }
+
+  it should "recognize a non-nullable regex 3" in {
+    (c.* ~ `∅`).nullable should equal (`∅`)
+  }
+
+  it should "recognize a non-nullable regex 4" in {
+    (b.+).nullable should equal (`∅`)
+  }
+
+  it should "recognize a non-nullable regex 5" in {
+    (c>=6 | d>=1).nullable should equal (`∅`)
+  }
+
+  it should "recognize a non-nullable regex 6" in {
+    (c<= 2 & c>=3).nullable should equal (`∅`)
+  }
+
+  it should "recognize a non-nullable regex 7" in {
+    (`ε` ~ `∅`).nullable should equal (`∅`)
+  }
+
 }

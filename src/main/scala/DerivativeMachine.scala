@@ -48,25 +48,6 @@ case object PushIntersect extends Instruction
 case object PushNullable extends Instruction
 case class PushRe(re: Regex) extends Instruction
 
-class dm() {
-  def run(): Unit = {
-    val re1 = !((Chars('a').* | Chars('b').*) ~ Chars('c')) & ((Chars('b') | Chars('c').*) ~ Chars('a'))
-    val dm1 = new DerivativeMachine(re1)
-
-    val str: String = dm1.derive('b').toString()
-    val eval1 = dm1.eval("abbc")
-    val eval2 = dm1.eval("aaaac")
-    val eval3 = dm1.eval("c")
-    val eval4 = dm1.eval("a")
-    println(str)
-    println(eval1)
-    println(eval2)
-    println(eval3)
-    println(eval4)
-
-  }
-}
-
 class DerivativeMachine(re: Regex) {
   import Regex._
 
@@ -221,4 +202,8 @@ class DerivativeMachine(re: Regex) {
       }
     }
   }
+}
+
+object DerivativeMachine {
+  def apply(re : Regex) = new DerivativeMachine(re)
 }
