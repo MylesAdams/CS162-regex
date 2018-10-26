@@ -85,10 +85,14 @@ object `package` {
     }
 
     // Shorthand for at least 'min' repetitions of re regex.
-    def >=(min: Int): Regex = Concatenate(re ^ min, re.*)
+    def >=(min: Int): Regex = {
+      require(min >= 0)
+      Concatenate(re ^ min, re.*)
+    }
 
     // Shorthand for at most 'max' repetitions of re regex.
     def <=(max: Int): Regex = {
+      require(max >= 0)
       def rep(accRegex: Regex, num: Int): Regex = num match {
         case `max` => accRegex | (re ^ num)
         case n => rep(accRegex | re ^ num, num + 1)
@@ -104,7 +108,10 @@ object `package` {
     }
 
     // Shorthand for at least 'min' but at most 'max' repetitions of re regex.
-    def <>(min: Int, max: Int): Regex = (re >= min) & (re <= max)
+    def <>(min: Int, max: Int): Regex = {
+      require(max >= min)
+      (re >= min) & (re <= max)
+    }
   }
 
   // Add convenient methods to String for building simple regular expressions.
