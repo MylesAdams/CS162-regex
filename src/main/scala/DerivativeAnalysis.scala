@@ -18,7 +18,13 @@ object DerivativeAnalysis {
   // Statically analyzes 're' using derivatives in order to compute the DFA of
   // the language recognized by 're'. The resulting DFA has an explicit error
   // state and is approximately minimal.
-  def analyze(re: Regex): Dfa[Regex] = ???
+  def analyze(re: Regex): Dfa[Regex] = {
+    val statesAndTransitions = computeDfa(Set(re), Set[Regex](), Map[Regex, Seq[(CharSet, Regex)]]())
+
+    val init = re
+    val fin = statesAndTransitions._1.filter(_.nullable == `ε`)
+    Dfa(statesAndTransitions._2, init, fin)
+  }
 
   //----------------------------------------------------------------------------
   // Private details.

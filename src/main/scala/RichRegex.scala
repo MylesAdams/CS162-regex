@@ -21,7 +21,6 @@ object `package` {
       case (`∅`, r) => ∅
       case (r, `ε`) => r
       case (`ε`, r) => r
-      case (r1, r2) => Concatenate(r1, r2)
       // This case should come after all other cases that handle concatenation
       // simplification. It handles the case where the concatenation is not
       // right-associative, and transforms it into right-associative form. There
@@ -36,6 +35,7 @@ object `package` {
         }
         replaceRight(re)
       }
+      case (r1, r2) => Concatenate(r1, r2)
     }
 
     // Union 're' with 'other', simplifying if possible (assumes that 're' and
@@ -49,7 +49,6 @@ object `package` {
       case (KleeneStar(`α`), r) => KleeneStar(`α`)
       case (r, KleeneStar(`α`)) => KleeneStar(`α`)
       case (r1, r2) if r1 == r2 => r1
-      case (r1, r2) => Union(r1, r2)
       // This case should come after all other cases that handle union
       // simplification. It ensures that unions are right-associative and the
       // operands are ordered correctly.
@@ -91,7 +90,6 @@ object `package` {
       case (KleeneStar(`α`), r) => r
       case (r, KleeneStar(`α`)) => r
       case (r1, r2) if r1 == r2 => r1
-      case (r1, r2) => Intersect(r1, r2)
       // This case should come after all other cases that handle intersection
       // simplification. It ensures that intersections are right-associative and
       // the operands are ordered correctly.
@@ -127,7 +125,12 @@ object `package` {
     // Shorthand for at least 'min' repetitions of re regex.
     def >=(min: Int): Regex = {
       require(min >= 0)
-      Concatenate(re ^ min, re.*)
+      def rep(accRegex: Regex, num: Int): Regex = num match {
+        case `min` => Concatenate(re, accRegex)
+        case n => rep(re ~ accRegex, n + 1)
+      }
+
+      rep(KleeneStar(re), 1)
     }
 
     // Shorthand for at most 'max' repetitions of re regex.
