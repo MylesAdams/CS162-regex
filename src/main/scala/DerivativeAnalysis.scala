@@ -22,7 +22,7 @@ object DerivativeAnalysis {
     val statesAndTransitions = computeDfa(Set(re), Set[Regex](), Map[Regex, Seq[(CharSet, Regex)]]())
 
     val init = re
-    val fin = statesAndTransitions._1.filter(_.nullable == `ε`)
+    val fin = statesAndTransitions._1.filter(_.nullable == ε)
     Dfa(statesAndTransitions._2, init, fin)
   }
 
@@ -42,8 +42,9 @@ object DerivativeAnalysis {
   private def computeDfa(todo: Set[Regex], visitedStates: Set[Regex],
                          transitions: Transitions[Regex]) : (Set[Regex], Transitions[Regex]) = {
     if (!todo.isEmpty) {
-      val x = computeNext(todo.head)
-      computeDfa(todo.drop(1) ++ x._1, visitedStates + todo.head, transitions ++ x._2)
+      val statesAndTransitions = computeNext(todo.head)
+      val newTodoStates = statesAndTransitions._1.filter(!visitedStates.contains(_))
+      computeDfa(newTodoStates ++ todo.drop(1), visitedStates + todo.head, transitions ++ statesAndTransitions._2)
     }
     else {
       (visitedStates, transitions)
@@ -56,7 +57,7 @@ object DerivativeAnalysis {
     def partition(re: Regex): Set[CharSet] = re match {
       case `∅` => Set(α.chars)
       case `ε` => Set(α.chars)
-      case Chars(s) => Set(s, α.chars & s)
+      case Chars(s) => Set(s, α.chars & !s)
       case KleeneStar(r) => partition(r)
       case Complement(r) => partition(r)
       case Union(r, s) => partition(r) ^ partition(s)
@@ -68,9 +69,12 @@ object DerivativeAnalysis {
     val derivativeMachine = new DerivativeMachine(state)
 
     val endStatesAndTransitionSeq = partition(state).foldLeft((Set[Regex](), Seq[(CharSet, Regex)]())) {
-      (acc, cs) => {
-        val derivative = derivativeMachine.derive(cs.minValue)
-        (acc._1 + derivative, acc._2 :+ (cs, derivative))
+      (acc, cs) => cs.minElement match {
+        case Some(c) => {
+          val derivative = derivativeMachine.derive(c)
+          (acc._1 + derivative, (cs, derivative) +: acc._2)
+        }
+        case None => acc
       }
     }
 
