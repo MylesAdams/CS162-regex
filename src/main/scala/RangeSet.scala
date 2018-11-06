@@ -116,7 +116,6 @@ abstract class RangeSet[T, Self <: RangeSet[T, Self]](
   // Returns true iff the set is empty.
   def isEmpty: Boolean =
     elements.isEmpty
-
   // Set equality.
   override def equals(other: Any): Boolean = other match {
     case set: RangeSet[T, _] => elements == set.elements
