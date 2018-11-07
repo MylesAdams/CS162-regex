@@ -173,6 +173,34 @@ class RegexSpec extends FlatSpec with Matchers {
     re should equal (norm)
   }
 
+  it should "normalize correctly 3" in {
+    ((b^2) ~ b) should equal (Concatenate(b, b^2))
+  }
+
+  it should "normalize correctly 4" in {
+    ((b ~ c) ~ (c ~ d)) should equal (Concatenate(b, Concatenate(c, Concatenate(c, d))))
+  }
+
+  it should "normalize correctly 5" in {
+    ((b | c.*) | d.*) should equal (Union(b, Union(c.*, d.*)))
+  }
+
+  it should "normalize correctly 6" in {
+    ((b | c.*) | (b.* | d)) should equal(Union(b, Union(d, Union(b.*, c.*))))
+  }
+
+  it should "normalize correctly 7" in {
+    ((c ~ d) & (c.* ~ d.*) & (c.* ~ d.?)) should equal (Intersect((c ~ d), Intersect((c.* ~ d.?), (c.* ~ d.*))))
+  }
+
+  it should "normalize correctly 8" in {
+    ((!(b ~ c) & ((c.* ~ d.*) & (((c^2) ~ ((d.?)^3)) & ((c^2) ~ d))))) should equal (Intersect((c^2) ~ d, Intersect((c^2) ~ ((d.?)^3), Intersect(c.* ~ d.*, !(b ~ c)))))
+  }
+
+  it should "normalize correctly 9" in {
+    (((c^3) ~ c.*) & ((!c & !b).* ~ Chars('b' -> 'c')) | (ε ~ b.*)) should equal (Union(b.*, Intersect(Concatenate(c, Concatenate(c, Concatenate(c, c.*))), Concatenate(Intersect(!b, !c).*, Chars('b' -> 'c')))))
+  }
+
   behavior of "nullable"
 
   it should "recognize a nullable regex 1" in {
@@ -230,5 +258,4 @@ class RegexSpec extends FlatSpec with Matchers {
   it should "recognize a non-nullable regex 7" in {
     (`ε` ~ `∅`).nullable should equal (`∅`)
   }
-
 }

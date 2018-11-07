@@ -30,6 +30,9 @@ class DerivativeAnalysisSpec extends FlatSpec with Matchers with Timeout {
   val bSet = CharSet('b')
   val cSet = CharSet('c')
   val abSet = CharSet('a', 'b')
+  val acSet = CharSet('a', 'c')
+  val bcSet = CharSet('b', 'c')
+  val abcSet = CharSet('a', 'b', 'c')
 
   behavior of "the analysis"
 
@@ -44,10 +47,32 @@ class DerivativeAnalysisSpec extends FlatSpec with Matchers with Timeout {
     // building work well together. If the regexes are not conflated
     // properly, DFA construction would cause a timeout or stack
     // overflow and this test should fail.
-    val dfa = analyzeWithTimeout((((charA^2) ~ (charB^2)) | (((charA^2) ~ (charB^2)).+)).*)
+    val dfa = analyzeWithTimeout((((charA).+)^2).*)
   }
 
-  // more tests...
+  it should "should always terminate 3" in {
+    val dfa = analyzeWithTimeout((((Chars(abcSet) & Chars(abSet))) | charA<>(1,5)).*)
+  }
+
+  it should "should always terminate 4" in {
+    val dfa = analyzeWithTimeout((((charA^2) | ((charA^2) ~ charA)).*).*)
+  }
+
+  it should "should always terminate 5" in {
+    val dfa = analyzeWithTimeout(((charA | charB).*)>=(3))
+  }
+
+  it should "should always terminate 6" in {
+    val dfa = analyzeWithTimeout(((!charA | charB).+) & ((charA | !charB).*))
+  }
+
+  it should "should always terminate 7" in {
+    val dfa = analyzeWithTimeout((!((charC.?).*) | (charC.* ~ charA.*).+).*)
+  }
+
+  it should "should always terminate 8" in {
+    val dfa = analyzeWithTimeout(((charA | charB).*).+)
+  }
 
   it should "produce a DFA that recognizes the strings in language 1" in {
     val dfa = analyzeWithTimeout(ε | charA)
@@ -289,7 +314,7 @@ class DerivativeAnalysisSpec extends FlatSpec with Matchers with Timeout {
   it should "produce a DFA that has the correct structure 5" in {
     val re = charA & charB
     val dfa = DerivativeAnalysis.analyze(re)
-    val dfaStates = Seq(re, ∅)
+    val dfaStates = Seq(re)
 
     dfa.init should equal (re)
 
@@ -297,9 +322,73 @@ class DerivativeAnalysisSpec extends FlatSpec with Matchers with Timeout {
 
     dfa.delta.keys should contain theSameElementsAs(dfaStates)
 
-    dfa.delta(re) should contain theSameElementsAs Seq((!aSet, ∅), (aSet, charB))
-    dfa.delta(charB) should contain theSameElementsAs Seq((!bSet, ∅), (bSet, ε))
+    dfa.delta(re) should contain theSameElementsAs Seq((Σ, re))
+  }
+
+  it should "produce a DFA that has the correct structure 6" in {
+    val re = charA
+    val dfa = DerivativeAnalysis.analyze(re)
+    val dfaStates = Seq(re, ε, ∅)
+
+    dfa.init should equal (re)
+
+    dfa.fin should equal (Set[Regex](ε))
+
+    dfa.delta.keys should contain theSameElementsAs(dfaStates)
+
+    dfa.delta(re) should contain theSameElementsAs Seq((!aSet, ∅), (aSet, ε))
     dfa.delta(ε) should contain theSameElementsAs Seq((Σ, ∅))
+    dfa.delta(∅) should contain theSameElementsAs Seq((Σ, ∅))
+  }
+
+  it should "produce a DFA that has the correct structure 7" in {
+    val re = ε
+    val dfa = DerivativeAnalysis.analyze(re)
+    val dfaStates = Seq(re, ∅)
+
+    dfa.init should equal (re)
+
+    dfa.fin should equal (Set[Regex](ε))
+
+    dfa.delta.keys should contain theSameElementsAs(dfaStates)
+
+    dfa.delta(re) should contain theSameElementsAs Seq((Σ, ∅))
+    dfa.delta(∅) should contain theSameElementsAs Seq((Σ, ∅))
+  }
+
+  it should "produce a DFA that has the correct structure 8" in {
+    val re = ((charA.* | (charB.* ~ charC.+).*) ~ charB ~ charA)
+    val dfa = DerivativeAnalysis.analyze(re)
+
+    val partialState0 = charB ~ charA
+    val partialState1 = (charB.* ~ charC.+)
+
+    val cState0 = charA.* ~ partialState0
+    val cState1 = charA | (partialState1.+ ~ partialState0)
+    val cState2 = partialState1.+ ~ partialState0
+    val cState3 = charC.* ~ partialState1.* ~ partialState0
+    val dfaStates = Seq(re, cState0, cState1, cState2, cState3, charA, ε, ∅)
+
+    dfa.init should equal (re)
+
+    dfa.fin should equal (Set[Regex](ε))
+
+    dfa.delta.keys should contain theSameElementsAs(dfaStates)
+
+    dfa.delta(re) should contain theSameElementsAs Seq((aSet, cState0), (bSet, cState1), (cSet, cState3), (!abcSet, ∅))
+
+    dfa.delta(cState0) should contain theSameElementsAs Seq((aSet, cState0), (bSet, charA), (!abSet, ∅))
+
+    dfa.delta(cState1) should contain theSameElementsAs Seq((aSet, ε), (bSet, cState2), (cSet, cState3), (!abcSet, ∅))
+
+    dfa.delta(cState2) should contain theSameElementsAs Seq((bSet, cState2), (cSet, cState3), (!bcSet, ∅))
+
+    dfa.delta(cState3) should contain theSameElementsAs Seq((bSet, cState1), (cSet, cState3), (!bcSet, ∅))
+
+    dfa.delta(charA) should contain theSameElementsAs Seq((aSet, ε), (!aSet, ∅))
+
+    dfa.delta(ε) should contain theSameElementsAs Seq((Σ, ∅))
+
     dfa.delta(∅) should contain theSameElementsAs Seq((Σ, ∅))
   }
 }
