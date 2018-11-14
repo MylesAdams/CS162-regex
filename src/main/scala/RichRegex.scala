@@ -156,6 +156,10 @@ object `package` {
       (re >= min) & (re <= max)
     }
 
+    // Place the regex inside a capture group with the given name.
+    def capture(name: String): Regex =
+      Capture(name, re)
+
     //----------------------------------------------------------------------------
     // Private details.
     //----------------------------------------------------------------------------
