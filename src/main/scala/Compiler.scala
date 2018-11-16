@@ -9,10 +9,33 @@ import Regex._
 
 object Compiler {
   // Return a virtual machine program that implements the given regex.
-  def compile(re: Regex): Program = re match {
-    case `∅` => IndexedSeq(Reject)
-    case `ε` => IndexedSeq(PushEmpty, Accept)
-    case Chars(cs) => IndexedSeq(Reject)
-  }
+  def compile(re: Regex): Program = {
+    def compileRecursively(re: Regex): Program = re match {
+      case `∅` => IndexedSeq(Reject)
+      case `ε` => IndexedSeq(PushEmpty)
+      case Chars(cs) => IndexedSeq(MatchSet(cs), PushChar)
+      case Concatenate(r1, r2) => compileRecursively(r1) ++ (compileRecursively(r2) :+ PushConcat)
+      case Union(r1, r2) => {
+        val right = compileRecursively(r2) :+ PushRight
 
+        val left = compileRecursively(r1) ++ IndexedSeq(PushLeft, Jump(right.length + 1))
+
+        Fork(1, left.length + 1) +: (left ++ right)
+      }
+      case KleeneStar(r) => {
+        val rBody = compileRecursively(r) :+ PushStar
+
+        val forkSize = rBody.length + 2
+
+        if (r.nullable == ε) {
+          IndexedSeq(InitStar, CheckProgress, Fork(1, forkSize)) ++ (rBody :+ Jump(-1 * forkSize))
+        }
+        else {
+          IndexedSeq(InitStar, Fork(1, forkSize)) ++ (rBody :+ Jump(-1 * (forkSize - 1)))
+        }
+      }
+    }
+
+    compileRecursively(re) :+ Accept
+  }
 }
