@@ -12,9 +12,13 @@ object Compiler {
   def compile(re: Regex): Program = {
     def compileRecursively(re: Regex): Program = re match {
       case `∅` => IndexedSeq(Reject)
+
       case `ε` => IndexedSeq(PushEmpty)
+
       case Chars(cs) => IndexedSeq(MatchSet(cs), PushChar)
-      case Concatenate(r1, r2) => compileRecursively(r1) ++ (compileRecursively(r2) :+ PushConcat)
+
+      case Concatenate(r1, r2) => (compileRecursively(r1) ++ (compileRecursively(r2)) :+ PushConcat)
+
       case Union(r1, r2) => {
         val right = compileRecursively(r2) :+ PushRight
 
@@ -22,6 +26,7 @@ object Compiler {
 
         Fork(1, left.length + 1) +: (left ++ right)
       }
+
       case KleeneStar(r) => {
         val rBody = compileRecursively(r) :+ PushStar
 
@@ -34,6 +39,8 @@ object Compiler {
           IndexedSeq(InitStar, Fork(1, forkSize)) ++ (rBody :+ Jump(-1 * (forkSize - 1)))
         }
       }
+
+      case Capture(name, r) => compileRecursively(r) :+ PushCapture(name)
     }
 
     compileRecursively(re) :+ Accept

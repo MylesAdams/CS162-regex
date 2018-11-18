@@ -21,7 +21,7 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
 
     // Execute all given threads until they reach either a MatchSet or an Accept
     // instruction; returns the resulting set of Threads.
-    // @annotation.tailrec
+    @annotation.tailrec
     def runUntilMatchOrAccept(
       thread: Thread,
       todo: Set[Thread],
@@ -79,12 +79,12 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
       }
 
       case Jump(offset) =>
-        runUntilMatchOrAccept(thread.update(deltaPC = offset), todo, result)
+        runUntilMatchOrAccept(thread.update(offset = offset), todo, result)
 
       case Fork(offset1, offset2) =>
         runUntilMatchOrAccept(
-          thread.update(deltaPC = offset1),
-          todo + thread.update(deltaPC = offset2),
+          thread.update(offset = offset1),
+          todo + thread.update(offset = offset2),
           result)
 
       case `PushEmpty` =>
@@ -92,6 +92,11 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
           thread.update(newParseTree = Some(EmptyLeaf)),
           todo,
           result)
+
+      case `PushChar` => {
+        assert(false, "should be unreachable")
+        Set()
+      }
 
       case `PushConcat` =>
         runUntilMatchOrAccept(
@@ -104,13 +109,17 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
 
       case `PushLeft` =>
         runUntilMatchOrAccept(
-          thread.update(newParseTree = Some(LeftNode(thread.parse.head))),
+          thread.update(
+            newPriorityChar = Some('l'),
+            newParseTree = Some(LeftNode(thread.parse.head))),
           todo,
           result)
 
       case `PushRight` =>
         runUntilMatchOrAccept(
-          thread.update(newParseTree = Some(RightNode(thread.parse.head))),
+          thread.update(
+            newPriorityChar = Some('r'),
+            newParseTree = Some(RightNode(thread.parse.head))),
           todo,
           result
         )
@@ -149,13 +158,69 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
 
     // Remove any threads s.t. there exists another thread at the same program
     // point with a smaller Priority.
-    def compact(threads: Set[Thread]): Set[Thread] = ???
+    def compact(threads: Set[Thread]): Set[Thread] = {
+      threads.groupBy(thread => thread.pc).foldLeft(Set[Thread]()) {
+        (newThreads, group) => newThreads + group._2.minBy(thread => thread.priority)
+      }
+    }
 
     // Return the result of matching the current string position on all the
     // given threads.
-    val matchStringPosition: (Set[Thread], Char) => Set[Thread] = ???
+    val matchStringPosition: (Set[Thread], Char) => Set[Thread] =
+      (threads, char) => {
+        threads.foldLeft(Set[Thread]()) {
+          (newThreads, thread) => {
+            (program(thread.pc), program(thread.pc + 1)) match {
+              case (MatchSet(chars), `PushChar`) if chars contains char =>
+                println(thread.parse)
+                println(char)
+                println(chars)
+                newThreads + thread.update(
+                  offset = 2,
+                  newParseTree = Some(CharLeaf(char)))
 
-    ???
+              case _ => newThreads
+            }
+          }
+        }
+      }
+
+    val initialThread = Thread(0, Set[Int](), "", Seq[ParseTree]())
+
+    val endThreads = str.foldLeft(Set[Thread](initialThread)) {
+      (accThreads, char) => {
+        val firstThread = accThreads.minBy(thread => thread.priority)
+
+        val matchOrAcceptThreads = runUntilMatchOrAccept(
+          firstThread,
+          accThreads - firstThread,
+          Set[Thread]())
+
+        matchStringPosition(compact(matchOrAcceptThreads), char)
+      }
+    }
+
+    val finalRunThreads = runUntilMatchOrAccept(
+      endThreads.head,
+      endThreads.tail,
+      Set[Thread]())
+
+    val compactedThreads = compact(finalRunThreads)
+
+    val acceptingThreads =
+      compactedThreads.filter(thread => program(thread.pc) == Accept)
+    println(acceptingThreads)
+    val instructs = acceptingThreads.map{(thread) => program(thread.pc)}
+    println(instructs)
+
+    if (!acceptingThreads.isEmpty) {
+      Some(acceptingThreads.head.parse.head)
+    }
+    else {
+      None
+    }
+
+
   }
 
   // A thread of execution for the VM, where 'pc' is the program counter,
@@ -169,89 +234,47 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
 
   private implicit class UpdateThread(thread: Thread) {
     def update(
-      deltaPC: Int = 1,
+      offset: Int = 1,
       shouldUpdateProgress: Boolean = false,
       newPriorityChar: Option[Char] = None,
       newParseTree: Option[ParseTree] = None
     ): Thread = {
-      val newPC = thread.pc + deltaPC
+      val newPC = thread.pc + offset
 
       val newProgress = shouldUpdateProgress match {
         case false => thread.progress
+
         case true => thread.progress + thread.pc
       }
 
       val newPriority = newPriorityChar match {
         case None => thread.priority
+
         case Some(char) => thread.priority + char
       }
 
       val newParse = newParseTree match {
         case None => thread.parse
+
         case Some(parseTree) => parseTree match {
           case pt: EmptyLeaf.type => pt +: thread.parse
+
           case pt: CharLeaf => pt +: thread.parse
+
           case pt: ConcatNode => pt +: thread.parse.tail.tail
+
           case pt: LeftNode => pt +: thread.parse.tail
+
           case pt: RightNode => pt +: thread.parse.tail
+
           case pt: StarNode => pt +: thread.parse
+
           case pt: CaptureNode => pt +: thread.parse.tail
         }
       }
 
       Thread(newPC, newProgress, newPriority, newParse)
     }
-
-    // def update(
-    //   deltaPC: Int = 1,
-    //   shouldUpdateProgress: Boolean = false,
-    //   newPriorityChar: Option[Char] = None,
-    //   newParseTree: Option[ParseTree] = None
-    // ): Thread = (shouldUpdateProgress, newPriorityChar, newParseTree) match {
-    //   case (false, None, None) =>
-    //     thread.copy(pc = thread.pc + deltaPC)
-
-    //   case (false, Some(char), None) =>
-    //     thread.copy(
-    //       pc = thread.pc + deltaPC,
-    //       priority = thread.priority + char)
-
-    //   case (false, None, Some(parseTree)) =>
-    //     thread.copy(
-    //       pc = thread.pc + deltaPC,
-    //       parse = parseTree +: thread.parse)
-
-    //   case (false, Some(char), Some(parseTree)) =>
-    //     thread.copy(
-    //       pc = thread.pc + deltaPC,
-    //       priority = thread.priority + char,
-    //       parse = parseTree +: thread.parse)
-
-    //   case (true, None, None) =>
-    //     thread.copy(
-    //       pc = thread.pc + deltaPC,
-    //       progress = thread.progress + thread.pc)
-
-    //   case (true, Some(char), None) =>
-    //     thread.copy(
-    //       pc = thread.pc + deltaPC,
-    //       progress = thread.progress + thread.pc,
-    //       priority = thread.priority + char)
-
-    //   case (true, None, Some(parseTree)) =>
-    //     thread.copy(
-    //       pc = thread.pc + deltaPC,
-    //       progress = thread.progress + thread.pc,
-    //       parse = parseTree +: thread.parse)
-
-    //   case (true, Some(char), Some(parseTree)) =>
-    //     thread.copy(
-    //       pc = thread.pc + deltaPC,
-    //       progress = thread.progress + thread.pc,
-    //       priority = thread.priority + char,
-    //       parse = parseTree +: thread.parse)
-    // }
   }
-
 }
 
