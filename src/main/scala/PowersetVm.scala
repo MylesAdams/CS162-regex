@@ -23,7 +23,43 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
     // instruction; returns the resulting set of Threads.
     // @annotation.tailrec
     def runUntilMatchOrAccept(thread: Thread, todo: Set[Thread],
-      result: Set[Thread]): Set[Thread] = ???
+                              result: Set[Thread]): Set[Thread] = program(thread.pc) match {
+      case `Accept` => {
+        if (!todo.isEmpty) {
+          val nextThread = todo.minBy(todoThread => todoThread.priority)
+
+          runUntilMatchOrAccept(nextThread, todo - nextThread, result + thread)
+        }
+        else {
+          result + thread
+        }
+      }
+      case `Reject` => {
+        if (!todo.isEmpty) {
+          val nextThread = todo.minBy(todoThread => todoThread.priority)
+
+          runUntilMatchOrAccept(nextThread, todo - nextThread, result)
+        }
+        else {
+          result
+        }
+      }
+      case `CheckProgress` => {
+        if (thread.progress contains(thread.pc)) {
+          if (!todo.isEmpty) {
+            val nextThread = todo.minBy(todoThread => todoThread.priority)
+
+            runUntilMatchOrAccept(nextThread, todo - nextThread, result)
+          }
+          else {
+            result
+          }
+        }
+        else {
+          runUntilMatchOrAccept(thread.update(1, true), todo, result)
+        }
+      }
+    }
 
     // Remove any threads s.t. there exists another thread at the same program
     // point with a smaller Priority.
@@ -44,4 +80,21 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
   // position.
   private case class Thread(pc: Int, progress: Set[Int], priority: String,
     parse: Seq[ParseTree])
+
+  private implicit class UpdateThread(thread: Thread) {
+    def update(deltaPC: Int, progressBool: Boolean = false) : Thread = progressBool match {
+      case false => Thread(
+        thread.pc + deltaPC,
+        thread.progress,
+        thread.priority,
+        thread.parse)
+      case _ => Thread(
+        thread.pc + deltaPC,
+        thread.progress + thread.pc,
+        thread.priority,
+        thread.parse)
+    }
+  }
+
 }
+
