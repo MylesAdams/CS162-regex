@@ -34,6 +34,7 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
           result + thread
         }
       }
+
       case `Reject` => {
         if (!todo.isEmpty) {
           val nextThread = todo.minBy(todoThread => todoThread.priority)
@@ -44,6 +45,7 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
           result
         }
       }
+
       case `CheckProgress` => {
         if (thread.progress contains(thread.pc)) {
           if (!todo.isEmpty) {
@@ -58,6 +60,21 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
         else {
           runUntilMatchOrAccept(thread.update(1, true), todo, result)
         }
+      }
+
+      case MatchSet(chars) => {
+        if (!todo.isEmpty) {
+          val nextThread = todo.minBy(todoThread => todoThread.priority)
+
+          runUntilMatchOrAccept(nextThread, todo - nextThread, result + thread)
+        }
+        else {
+          result + thread
+        }
+      }
+
+      case Jump(offset) => {
+        runUntilMatchOrAccept(thread.update(offset), todo, result)
       }
     }
 
