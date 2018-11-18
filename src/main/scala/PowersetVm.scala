@@ -22,8 +22,11 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
     // Execute all given threads until they reach either a MatchSet or an Accept
     // instruction; returns the resulting set of Threads.
     // @annotation.tailrec
-    def runUntilMatchOrAccept(thread: Thread, todo: Set[Thread],
-                              result: Set[Thread]): Set[Thread] = program(thread.pc) match {
+    def runUntilMatchOrAccept(
+      thread: Thread,
+      todo: Set[Thread],
+      result: Set[Thread]
+    ): Set[Thread] = program(thread.pc) match {
       case `Accept` => {
         if (!todo.isEmpty) {
           val nextThread = todo.minBy(todoThread => todoThread.priority)
@@ -58,7 +61,9 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
           }
         }
         else {
-          runUntilMatchOrAccept(thread.update(1, true), todo, result)
+          runUntilMatchOrAccept(
+            thread.update(shouldUpdateProgress = true),
+            todo, result)
         }
       }
 
@@ -73,9 +78,73 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
         }
       }
 
-      case Jump(offset) => {
-        runUntilMatchOrAccept(thread.update(offset), todo, result)
+      case Jump(offset) =>
+        runUntilMatchOrAccept(thread.update(deltaPC = offset), todo, result)
+
+      case Fork(offset1, offset2) =>
+        runUntilMatchOrAccept(
+          thread.update(deltaPC = offset1),
+          todo + thread.update(deltaPC = offset2),
+          result)
+
+      case `PushEmpty` =>
+        runUntilMatchOrAccept(
+          thread.update(newParseTree = Some(EmptyLeaf)),
+          todo,
+          result)
+
+      case `PushConcat` =>
+        runUntilMatchOrAccept(
+          thread.update(newParseTree =
+                          Some(ConcatNode(
+                              thread.parse.tail.head,
+                              thread.parse.head))),
+          todo,
+          result)
+
+      case `PushLeft` =>
+        runUntilMatchOrAccept(
+          thread.update(newParseTree = Some(LeftNode(thread.parse.head))),
+          todo,
+          result)
+
+      case `PushRight` =>
+        runUntilMatchOrAccept(
+          thread.update(newParseTree = Some(RightNode(thread.parse.head))),
+          todo,
+          result
+        )
+
+      case `InitStar` =>
+        runUntilMatchOrAccept(
+          thread.update(newParseTree = Some(StarNode(Seq()))),
+          todo,
+          result)
+
+      case `PushStar` => {
+        val body = thread.parse.head
+        val star = thread.parse.tail.head
+
+        star match {
+          case StarNode(seq) =>
+            runUntilMatchOrAccept(
+              thread.update(newParseTree = Some(StarNode(body +: seq))),
+              todo,
+              result)
+          case _ => {
+            assert(false, "should be unreachable")
+            Set()
+          }
+        }
       }
+
+      case PushCapture(name) =>
+        runUntilMatchOrAccept(
+          thread.update(
+            newParseTree = Some((CaptureNode(name, thread.parse.head)))),
+          todo,
+          result)
+
     }
 
     // Remove any threads s.t. there exists another thread at the same program
@@ -99,18 +168,89 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
     parse: Seq[ParseTree])
 
   private implicit class UpdateThread(thread: Thread) {
-    def update(deltaPC: Int, progressBool: Boolean = false) : Thread = progressBool match {
-      case false => Thread(
-        thread.pc + deltaPC,
-        thread.progress,
-        thread.priority,
-        thread.parse)
-      case _ => Thread(
-        thread.pc + deltaPC,
-        thread.progress + thread.pc,
-        thread.priority,
-        thread.parse)
+    def update(
+      deltaPC: Int = 1,
+      shouldUpdateProgress: Boolean = false,
+      newPriorityChar: Option[Char] = None,
+      newParseTree: Option[ParseTree] = None
+    ): Thread = {
+      val newPC = thread.pc + deltaPC
+
+      val newProgress = shouldUpdateProgress match {
+        case false => thread.progress
+        case true => thread.progress + thread.pc
+      }
+
+      val newPriority = newPriorityChar match {
+        case None => thread.priority
+        case Some(char) => thread.priority + char
+      }
+
+      val newParse = newParseTree match {
+        case None => thread.parse
+        case Some(parseTree) => parseTree match {
+          case pt: EmptyLeaf.type => pt +: thread.parse
+          case pt: CharLeaf => pt +: thread.parse
+          case pt: ConcatNode => pt +: thread.parse.tail.tail
+          case pt: LeftNode => pt +: thread.parse.tail
+          case pt: RightNode => pt +: thread.parse.tail
+          case pt: StarNode => pt +: thread.parse
+          case pt: CaptureNode => pt +: thread.parse.tail
+        }
+      }
+
+      Thread(newPC, newProgress, newPriority, newParse)
     }
+
+    // def update(
+    //   deltaPC: Int = 1,
+    //   shouldUpdateProgress: Boolean = false,
+    //   newPriorityChar: Option[Char] = None,
+    //   newParseTree: Option[ParseTree] = None
+    // ): Thread = (shouldUpdateProgress, newPriorityChar, newParseTree) match {
+    //   case (false, None, None) =>
+    //     thread.copy(pc = thread.pc + deltaPC)
+
+    //   case (false, Some(char), None) =>
+    //     thread.copy(
+    //       pc = thread.pc + deltaPC,
+    //       priority = thread.priority + char)
+
+    //   case (false, None, Some(parseTree)) =>
+    //     thread.copy(
+    //       pc = thread.pc + deltaPC,
+    //       parse = parseTree +: thread.parse)
+
+    //   case (false, Some(char), Some(parseTree)) =>
+    //     thread.copy(
+    //       pc = thread.pc + deltaPC,
+    //       priority = thread.priority + char,
+    //       parse = parseTree +: thread.parse)
+
+    //   case (true, None, None) =>
+    //     thread.copy(
+    //       pc = thread.pc + deltaPC,
+    //       progress = thread.progress + thread.pc)
+
+    //   case (true, Some(char), None) =>
+    //     thread.copy(
+    //       pc = thread.pc + deltaPC,
+    //       progress = thread.progress + thread.pc,
+    //       priority = thread.priority + char)
+
+    //   case (true, None, Some(parseTree)) =>
+    //     thread.copy(
+    //       pc = thread.pc + deltaPC,
+    //       progress = thread.progress + thread.pc,
+    //       parse = parseTree +: thread.parse)
+
+    //   case (true, Some(char), Some(parseTree)) =>
+    //     thread.copy(
+    //       pc = thread.pc + deltaPC,
+    //       progress = thread.progress + thread.pc,
+    //       priority = thread.priority + char,
+    //       parse = parseTree +: thread.parse)
+    // }
   }
 
 }
