@@ -44,4 +44,3 @@ class PowersetVmSpec extends FlatSpec with Matchers {
 
   // more tests...
 }
-

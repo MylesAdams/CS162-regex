@@ -26,10 +26,13 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
       thread: Thread,
       todo: Set[Thread],
       result: Set[Thread]
-    ): Set[Thread] = program(thread.pc) match {
+    ): Set[Thread] =
+    {
+      // println(thread)
+      program(thread.pc) match {
       case `Accept` => {
         if (!todo.isEmpty) {
-          val nextThread = todo.minBy(todoThread => todoThread.priority)
+          val nextThread = todo.head
 
           runUntilMatchOrAccept(nextThread, todo - nextThread, result + thread)
         }
@@ -40,7 +43,7 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
 
       case `Reject` => {
         if (!todo.isEmpty) {
-          val nextThread = todo.minBy(todoThread => todoThread.priority)
+          val nextThread = todo.head
 
           runUntilMatchOrAccept(nextThread, todo - nextThread, result)
         }
@@ -52,7 +55,7 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
       case `CheckProgress` => {
         if (thread.progress contains(thread.pc)) {
           if (!todo.isEmpty) {
-            val nextThread = todo.minBy(todoThread => todoThread.priority)
+            val nextThread = todo.head
 
             runUntilMatchOrAccept(nextThread, todo - nextThread, result)
           }
@@ -69,7 +72,7 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
 
       case MatchSet(chars) => {
         if (!todo.isEmpty) {
-          val nextThread = todo.minBy(todoThread => todoThread.priority)
+          val nextThread = todo.head
 
           runUntilMatchOrAccept(nextThread, todo - nextThread, result + thread)
         }
@@ -102,8 +105,8 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
         runUntilMatchOrAccept(
           thread.update(newParseTree =
                           Some(ConcatNode(
-                              thread.parse.tail.head,
-                              thread.parse.head))),
+                                 thread.parse.tail.head,
+                                 thread.parse.head))),
           todo,
           result)
 
@@ -154,14 +157,15 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
           todo,
           result)
 
-    }
+    }}
 
     // Remove any threads s.t. there exists another thread at the same program
     // point with a smaller Priority.
     def compact(threads: Set[Thread]): Set[Thread] = {
       threads.groupBy(thread => thread.pc).foldLeft(Set[Thread]()) {
-        (newThreads, group) => newThreads + group._2.minBy(thread => thread.priority)
-      }
+        (newThreads, group) => {
+          newThreads + group._2.minBy(thread => thread.priority)
+}      }
     }
 
     // Return the result of matching the current string position on all the
@@ -172,12 +176,10 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
           (newThreads, thread) => {
             (program(thread.pc), program(thread.pc + 1)) match {
               case (MatchSet(chars), `PushChar`) if chars contains char =>
-                println(thread.parse)
-                println(char)
-                println(chars)
                 newThreads + thread.update(
                   offset = 2,
-                  newParseTree = Some(CharLeaf(char)))
+                  newParseTree = Some(CharLeaf(char))
+                ).copy(progress = Set[Int]())
 
               case _ => newThreads
             }
@@ -189,7 +191,8 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
 
     val endThreads = str.foldLeft(Set[Thread](initialThread)) {
       (accThreads, char) => {
-        val firstThread = accThreads.minBy(thread => thread.priority)
+        println(accThreads)
+        val firstThread = accThreads.head
 
         val matchOrAcceptThreads = runUntilMatchOrAccept(
           firstThread,
@@ -200,10 +203,14 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
       }
     }
 
+    println(endThreads)
+
     val finalRunThreads = runUntilMatchOrAccept(
       endThreads.head,
       endThreads.tail,
       Set[Thread]())
+
+    println(finalRunThreads)
 
     val compactedThreads = compact(finalRunThreads)
 
@@ -267,7 +274,10 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
 
           case pt: RightNode => pt +: thread.parse.tail
 
-          case pt: StarNode => pt +: thread.parse
+          case pt: StarNode => {
+            if (pt.children.isEmpty) pt +: thread.parse
+            else pt+: thread.parse.tail.tail
+          }
 
           case pt: CaptureNode => pt +: thread.parse.tail
         }
