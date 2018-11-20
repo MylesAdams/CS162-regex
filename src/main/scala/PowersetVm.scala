@@ -174,12 +174,20 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
       (threads, char) => {
         threads.foldLeft(Set[Thread]()) {
           (newThreads, thread) => {
-            (program(thread.pc), program(thread.pc + 1)) match {
-              case (MatchSet(chars), `PushChar`) if chars contains char =>
-                newThreads + thread.update(
-                  offset = 2,
-                  newParseTree = Some(CharLeaf(char))
-                ).copy(progress = Set[Int]())
+            (program(thread.pc)) match {
+               case MatchSet(chars) if chars contains char =>
+                 program(thread.pc + 1) match {
+                   case `PushChar` =>
+                     newThreads + thread.update(
+                       offset = 2,
+                       newParseTree = Some(CharLeaf(char))
+                     ).copy(progress = Set[Int]())
+
+                   case _ => {
+                     assert(false, "Should be unreachable")
+                     newThreads
+                   }
+                 }
 
               case _ => newThreads
             }
@@ -190,42 +198,45 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
     val initialThread = Thread(0, Set[Int](), "", Seq[ParseTree]())
 
     val endThreads = str.foldLeft(Set[Thread](initialThread)) {
-      (accThreads, char) => {
-        println(accThreads)
-        val firstThread = accThreads.head
+      (accThreads, char) => accThreads.isEmpty match {
+        case false => {
+          val firstThread = accThreads.head
 
-        val matchOrAcceptThreads = runUntilMatchOrAccept(
-          firstThread,
-          accThreads - firstThread,
-          Set[Thread]())
+          val matchOrAcceptThreads = runUntilMatchOrAccept(
+            firstThread,
+            accThreads - firstThread,
+            Set[Thread]())
 
-        matchStringPosition(compact(matchOrAcceptThreads), char)
+          matchStringPosition(compact(matchOrAcceptThreads), char)
+        }
+        case true => accThreads
       }
     }
 
-    println(endThreads)
+    if (!endThreads.isEmpty) {
+      val finalRunThreads = runUntilMatchOrAccept(
+        endThreads.head,
+        endThreads.tail,
+        Set[Thread]())
 
-    val finalRunThreads = runUntilMatchOrAccept(
-      endThreads.head,
-      endThreads.tail,
-      Set[Thread]())
+      val compactedThreads = compact(finalRunThreads)
 
-    println(finalRunThreads)
+      val acceptingThreads =
+        compactedThreads.filter(thread => program(thread.pc) == Accept)
 
-    val compactedThreads = compact(finalRunThreads)
+      val instructs = acceptingThreads.map{(thread) => program(thread.pc)}
 
-    val acceptingThreads =
-      compactedThreads.filter(thread => program(thread.pc) == Accept)
-    println(acceptingThreads)
-    val instructs = acceptingThreads.map{(thread) => program(thread.pc)}
-    println(instructs)
-
-    if (!acceptingThreads.isEmpty) {
-      Some(acceptingThreads.head.parse.head)
+      if (!acceptingThreads.isEmpty) {
+        Some(acceptingThreads.head.parse.head)
+      }
+      else {
+        None
+      }
     }
     else {
       None
     }
+
 
 
   }
