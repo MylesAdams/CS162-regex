@@ -24,8 +24,9 @@ class CompileSpec extends FlatSpec with Matchers {
 
   behavior of "compile"
 
-  it should "correctly compile the empty language" in {
+  it should "correctly compile ∅" in {
     val re = ∅
+
     val correctProgram = IndexedSeq(
       Reject,
       Accept)
@@ -35,6 +36,7 @@ class CompileSpec extends FlatSpec with Matchers {
 
   it should "correctly compile ε" in {
     val re = ε
+
     val correctProgram = IndexedSeq(
       PushEmpty,
       Accept)
@@ -42,8 +44,20 @@ class CompileSpec extends FlatSpec with Matchers {
     Compiler.compile(re) should equal (correctProgram)
   }
 
-  it should "correctly compile concatenation" in  {
+  it should "correctly compile Chars" in  {
+    val re = b
+
+    val correctProgram = IndexedSeq(
+      MatchSet(b.chars),
+      PushChar,
+      Accept)
+
+    Compiler.compile(re) should equal (correctProgram)
+  }
+
+  it should "correctly compile Concatenate" in  {
     val re = b ~ c
+
     val correctProgram = IndexedSeq(
       MatchSet(bSet),
       PushChar,
@@ -55,8 +69,9 @@ class CompileSpec extends FlatSpec with Matchers {
     Compiler.compile(re) should equal (correctProgram)
   }
 
-  it should "correctly compile union" in  {
+  it should "correctly compile Union" in  {
     val re = Union(b,c)
+
     val correctProgram = IndexedSeq(
       Fork(1,5),
       MatchSet(bSet),
@@ -71,8 +86,9 @@ class CompileSpec extends FlatSpec with Matchers {
     Compiler.compile(re) should equal (correctProgram)
   }
 
-  it should "correctly compile kleene star" in  {
+  it should "correctly compile Kleene Star" in  {
     val re = b.*
+
     val correctProgram = IndexedSeq(
       InitStar,
       Fork(1,5),
@@ -84,10 +100,33 @@ class CompileSpec extends FlatSpec with Matchers {
 
     Compiler.compile(re) should equal (correctProgram)
   }
-  // more tests...
+
+  it should "correctly compile Capture"  in  {
+    val re = Capture("CaptureTest", c | b.*)
+
+    val correctProgram = IndexedSeq(
+      Fork(1,5),
+      MatchSet(c.chars),
+      PushChar,
+      PushLeft,
+      Jump(8),
+      InitStar,
+      Fork(1,5),
+      MatchSet(b.chars),
+      PushChar,
+      PushStar,
+      Jump(-4),
+      PushRight,
+      PushCapture("CaptureTest"),
+      Accept)
+
+
+    Compiler.compile(re) should equal (correctProgram)
+  }
 
   it should "correctly compile complex regexes 1" in {
     val re = Concatenate(Union(b,c), b)
+
     val correctProgram = IndexedSeq(
       Fork(1,5),
       MatchSet(b.chars),
@@ -107,6 +146,7 @@ class CompileSpec extends FlatSpec with Matchers {
 
   it should "correctly compile complex regexes 2" in {
     val re = (ε | b).*
+
     val correctProgram = IndexedSeq(
       InitStar,
       CheckProgress,
@@ -127,6 +167,7 @@ class CompileSpec extends FlatSpec with Matchers {
 
   it should "correctly compile complex regexes 3" in {
     val re = (b | c).* ~ d.+
+
     val correctProgram = IndexedSeq(
       InitStar,
       Fork(1,5),
@@ -151,6 +192,7 @@ class CompileSpec extends FlatSpec with Matchers {
 
   it should "correctly compile complex regexes 4" in {
     val re = (b.* | d) ~ (d.* | b)
+
     val correctProgram = IndexedSeq(
       Fork(1,5),
       MatchSet(dSet),
@@ -184,6 +226,7 @@ class CompileSpec extends FlatSpec with Matchers {
 
   it should "correctly compile complex regexes 5" in {
     val re = (b | (c | d.*)) ~ d.*
+
     val correctProgram = IndexedSeq(
       Fork(1,5),
       MatchSet(bSet),
@@ -217,6 +260,7 @@ class CompileSpec extends FlatSpec with Matchers {
 
   it should "correctly compile complex regexes 6" in {
     val re = ((d | c.+)^4) ~ (d | b).+
+
     val correctProgram = IndexedSeq(
       Fork(1,5),
       MatchSet(dSet),
@@ -297,6 +341,7 @@ class CompileSpec extends FlatSpec with Matchers {
   }
   it should "correctly compile complex regexes 7" in {
     val re = (d.? | c).+ ~ b
+
     val correctProgram = IndexedSeq(
       Fork(1,4),
       PushEmpty,
@@ -340,6 +385,7 @@ class CompileSpec extends FlatSpec with Matchers {
 
   it should "correctly compile complex regexes 8" in {
     val re = Concatenate(ε, Union(∅, d))
+
     val correctProgram = IndexedSeq(
       PushEmpty,
       Fork(1,4),
@@ -354,6 +400,4 @@ class CompileSpec extends FlatSpec with Matchers {
 
     Compiler.compile(re) should equal (correctProgram)
   }
-
-  // more tests...
 }

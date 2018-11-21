@@ -26,58 +26,62 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
       thread: Thread,
       todo: Set[Thread],
       result: Set[Thread]
-    ): Set[Thread] =
-    {
-      // println(thread)
-      program(thread.pc) match {
+    ): Set[Thread] = program(thread.pc) match {
       case `Accept` => {
-        if (!todo.isEmpty) {
-          val nextThread = todo.head
+        todo.isEmpty match {
+          case false => {
+            val nextThread = todo.head
 
-          runUntilMatchOrAccept(nextThread, todo - nextThread, result + thread)
-        }
-        else {
-          result + thread
+            runUntilMatchOrAccept(nextThread, todo - nextThread, result + thread)
+          }
+
+          case true => result + thread
         }
       }
 
       case `Reject` => {
-        if (!todo.isEmpty) {
-          val nextThread = todo.head
-
-          runUntilMatchOrAccept(nextThread, todo - nextThread, result)
-        }
-        else {
-          result
-        }
-      }
-
-      case `CheckProgress` => {
-        if (thread.progress contains(thread.pc)) {
-          if (!todo.isEmpty) {
+        todo.isEmpty match {
+          case false => {
             val nextThread = todo.head
 
             runUntilMatchOrAccept(nextThread, todo - nextThread, result)
           }
-          else {
-            result
-          }
+
+          case true => result
         }
-        else {
-          runUntilMatchOrAccept(
-            thread.update(shouldUpdateProgress = true),
-            todo, result)
+      }
+
+      case `CheckProgress` => {
+
+        thread.progress contains(thread.pc) match {
+          case true => {
+            todo.isEmpty match {
+              case false => {
+                val nextThread = todo.head
+
+                runUntilMatchOrAccept(nextThread, todo - nextThread, result)
+              }
+
+              case true => result
+            }
+          }
+
+          case false =>
+            runUntilMatchOrAccept(
+              thread.update(shouldUpdateProgress = true),
+              todo,
+              result)
         }
       }
 
       case MatchSet(chars) => {
-        if (!todo.isEmpty) {
-          val nextThread = todo.head
+        todo.isEmpty match {
+          case false => {
+            val nextThread = todo.head
 
-          runUntilMatchOrAccept(nextThread, todo - nextThread, result + thread)
-        }
-        else {
-          result + thread
+            runUntilMatchOrAccept(nextThread, todo - nextThread, result + thread)
+          }
+          case true => result + thread
         }
       }
 
@@ -157,7 +161,7 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
           todo,
           result)
 
-    }}
+    }
 
     // Remove any threads s.t. there exists another thread at the same program
     // point with a smaller Priority.
@@ -213,32 +217,31 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
       }
     }
 
-    if (!endThreads.isEmpty) {
-      val finalRunThreads = runUntilMatchOrAccept(
-        endThreads.head,
-        endThreads.tail,
-        Set[Thread]())
+    endThreads.isEmpty match {
+      case false => {
 
-      val compactedThreads = compact(finalRunThreads)
+        val finalRunThreads = runUntilMatchOrAccept(
+          endThreads.head,
+          endThreads.tail,
+          Set[Thread]())
 
-      val acceptingThreads =
-        compactedThreads.filter(thread => program(thread.pc) == Accept)
+        val compactedThreads = compact(finalRunThreads)
 
-      val instructs = acceptingThreads.map{(thread) => program(thread.pc)}
+        val acceptingThreads =
+          compactedThreads.filter(thread => program(thread.pc) == Accept)
 
-      if (!acceptingThreads.isEmpty) {
-        Some(acceptingThreads.head.parse.head)
+        val instructs = acceptingThreads.map{(thread) => program(thread.pc)}
+
+        acceptingThreads.isEmpty match {
+          case false => Some(acceptingThreads.head.parse.head)
+
+          case true => None
+        }
+
       }
-      else {
-        None
-      }
+
+      case true => None
     }
-    else {
-      None
-    }
-
-
-
   }
 
   // A thread of execution for the VM, where 'pc' is the program counter,
@@ -286,8 +289,11 @@ class PowersetVm(program: Program) extends VirtualMachine(program) {
           case pt: RightNode => pt +: thread.parse.tail
 
           case pt: StarNode => {
-            if (pt.children.isEmpty) pt +: thread.parse
-            else pt+: thread.parse.tail.tail
+            pt.children.isEmpty match {
+              case true => pt +: thread.parse
+
+              case false => pt+: thread.parse.tail.tail
+            }
           }
 
           case pt: CaptureNode => pt +: thread.parse.tail

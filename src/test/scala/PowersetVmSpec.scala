@@ -127,7 +127,7 @@ class PowersetVmSpec extends FlatSpec with Matchers {
           CharLeaf('c'))))
   }
 
-  it should "parse username, day, month, and year from piazza example" in {
+  it should "parse username, day, month, and year from piazza example (Capture)" in {
 
     val username = (Chars('a'->'z').+).capture("username")
     val date = ((Chars('0'->'9') <= 2).capture("day") ~ Chars('/', '-') ~
