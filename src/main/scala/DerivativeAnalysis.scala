@@ -26,6 +26,10 @@ object DerivativeAnalysis {
     Dfa(statesAndTransitions._2, init, fin)
   }
 
+  // Return the set of all possible derivatives of 're'.
+  def derivativeClosure(re: Regex): Set[Regex] =
+    computeDfa(todo = Set(re), visitedStates = Set(), transitions = Map())._1
+
   //----------------------------------------------------------------------------
   // Private details.
   //----------------------------------------------------------------------------
@@ -38,7 +42,7 @@ object DerivativeAnalysis {
 
   // Compute the transitions and set of reachable states (i.e., Regexes) for all
   // Regexes in 'todo'.
-  @annotation.tailrec
+  // @annotation.tailrec
   private def computeDfa(todo: Set[Regex], visitedStates: Set[Regex],
                          transitions: Transitions[Regex]) : (Set[Regex], Transitions[Regex]) = {
     if (!todo.isEmpty) {

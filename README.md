@@ -1,72 +1,147 @@
-# Assignment 4: Regex to NFA compiler and powerset VM
+# Assignment 5: Ambiguity type system for regular expressions
 
-### Deadline: November 20th, 11:59PM
+### Soft deadline: November 29, 11:59PM
+### Hard deadline: December 4, 11:59PM
 
-This week we talked about compiling regular expressions to NFA.
-In this assignment, you will be implementing:
+We went over ambiguous regular expressions and presented a type system
+to check whether a regular expression is ambiguous. In this assignment
+you will implement:
 
-  - The regex to NFA compiler
-  - Powerset VM
-  - Tests for your code
+  1. The ambiguity type system we talked about in class
+  2. Useful error messages for ambiguous regexes consisting of
+        - the subexpression that is the root cause of ambiguity (first
+         one encountered if there are more than one).
+        - a string that exposes the ambiguity in the subexpression.
+
+**Note about the deadlines:** We will post the next assignment on the
+29th but we will not start counting late days for this assignment
+until December 4th so that you can partition your time among these two
+assignments depending on your schedule during Thanksgiving and the
+finals week.
 
 ## Project Structure
 
- - `src/main/scala/Compiler.scala` - Contains the skeleton of the compiler. Your code goes here.
- - `src/main/scala/PowersetVm.scala` - Contains the skeleton of the powerset VM.
- - `src/main/scala/VirtualMachine.scala` - Contains the instruction case classes and objects, and an abstract vm interface. Do not alter this.
- - `src/main/scala/RecursiveBacktrackingVm.scala` - Contains the recursive backtracking VM implemented in class. You can use it to check what your compiler does while developing it, or that your VM behaves correctly.
+Files that contain the methods you need to implement:
 
-## Part 1: The Regex to NFA Compiler
+ - `src/main/scala/`
+   - `RichRegex.scala`: You need to implement `unambiguous` in this
+     file which checks whether the regex is ambiguous and returns the
+     ambiguous subexpression and a string that exposes the ambiguity
+     in the subexpression.
+   - `Dfa.scala`: You need to implement `getString` in this file which
+     will return a string that this DFA accepts if there is one. You
+     will use this to generate strings that expose ambiguity.
 
-The first part of the assignment is to implement the compiler. Your compiler will take a `Regex`, and produce a `Program`, a sequence of `Instruction`s. Fill out the skeleton method in Compiler.scala.
+Files that extend the functionality from the previous assignments (you
+need to use your implementation of these files but there is some
+additional functionality we give for this assignment so you need to
+merge your version with this):
 
-For each case of `Regex`, your compiler will return a sequence of instructions:
+  - `src/main/scala/`
+    - `DerivativeAnalysis.scala` - there is an additional method in
+      this file that we give called `derivativeClosure`. Make sure to
+      preserve this method when you add your version of this file.
+    - `RichRegex.scala` - we extended `nullable` and `lessThanEq` to
+      handle `Capture` and added some helpers () that help calculating
+      overlap. You need to merge these methods to your
+      `RichRegex.scala`. Also, note that there is a method in this
+      file you need to implement for this assignment: `unambiguous`.
+ 
+   
+Files that are used in this assignment you need to copy over (you can
+copy over these files verbatim from your previous assignment):
 
- - `∅` - Produces a program that immediately rejects
+ - `src/main/scala/`
+   - `DerivativeMachine.scala` is used by `DerivativeAnalysis` for DFA
+     construction, which you will need to compute the string that
+     causes the ambiguity.
 
- - `ε` - Produces a program that will push an empty leaf node onto the output stack
+**Note about grading:** Since the derivative analysis, regex builders,
+and the derivative machine are not parts of this assignment, we will
+use our own correct version of these so you don't need to worry about
+the bugs you have in these.
 
- - `cs ⊂ Σ` - Produces a program which matches a character in the given charset, and pushes the mached character onto the output stack
+## Part 1: The ambiguity type system
 
- - `r ~ s` - Produces a program that tries to match r and s in sequence, and push a concat node onto the output stack
+The judgment rules for the type system we described in class are below:
 
- - `r | s` -> It produces a program that forks the thread so that one executes r, and the other s. The forked threads should emit a PushLeft and PushRight as their last instructions respectively.
+```
+c ∈ Σ
+-------------------------------- [Char]
+⊢ c : unamb
 
- - `r*` -> Produces a program that forks into two threads - one jumps out of the Kleene star (decides to stop matching), the other executes the body of `r` and jumps back to the start of the Kleene star. If `r` is nullable, your compiler should emit a `CheckProgress` at the appropriate place in the loop to avoid falling into infinite loops.
+-------------------------------- [Empty]
+⊢ ∅ : unamb
 
-## Part 2: Powerset VM
+-------------------------------- [Epsilon]
+⊢ ε : unamb
 
-You will be implementing a virtual machine that uses Thompson's powerset strategy to implement a non-backtracking algorithm for regular expression matching, as described in class.
+⊢ r₁ : unamb   ⊢ r₂ : unamb   L(r₁ & r₂) = ∅
+-------------------------------------------- [Choice]
+⊢ r₁ | r₂ : unamb
 
-The skeleton code is in `src/main/scala/PowersetVm.scala`. You will need to implement the following methods:
- - `runUntilMatchOrAccept` - A helper method that runs threads until they reach a match or an accept.
- - `compact` - Takes a set of threads, and and removes those at the same program counter, but with lower priority.
- - `matchStringPosition` - Takes a set of threads and a character, keeps only those that match the current character
- - `eval` - the main method that evaluates a program w.r.t a string, returning a parse tree if the string is successfully parsed.
+⊢ r₁ : unamb   ⊢ r₂ : unamb   L(r₁ ⊓ r₂) = ∅
+-------------------------------------------- [Concat]
+⊢ r₁ ~ r₂ : unamb
 
-Hints:
- - There must be at most one living thread at the end of a program.
- - Remember to read scala docs for Seq and Set - many useful methods for traversing, filtering and grouping can be found there.
+⊢ r : unamb ¬(r.nullable)  L(r ⊓ r*) = ∅
+---------------------------------------- [Star]
+⊢ r* : unamb
+```
+
+Here, `L(r)` is the language of regular expression `r`, `⊓` is the
+overlap operator that we discussed in class.
+
+Note that ambiguity matters only for parsing, and complement and
+intersection are non-constructive (i.e., cannot contain capture
+groups) hence not used in parsing. So, you we don't have any typing
+rules for them.
+
+You need to implement a type checker that uses the typing rules above
+to check if the regex is ambiguous, and to find the first ambiguous
+subexpression.
+
+## Part 2: The string exposing ambiguity
+
+After finding the ambiguous subexpression in the type checker, you can
+build a regex that will describe a non-empty sublanguage of language
+of the input regex and is ambiguous for all strings it
+recognizes. Then, you can use the `getString` method you implement to find a
+string that exposes the ambiguity.
 
 ## Part 3: The Tests
 
 You will need to write your own unit tests. Testing your own code *is
 part of the grade*. We are looking for the following:
   - Non-trivial tests, i.e., a test that demonstrates that creating a
-    charset creates a charset is not very useful.
-  - Decent coverage - we don't expect you to go for a 100% test
-    coverage, but we do expect you to cover edge cases.
+    charset creates a charset is not useful.
+  - Good coverage - we don't expect you to go for a 100% test
+    coverage, but we do expect you to cover edge cases. You should
+    handle at least the different cases of constructing regexes, the
+    cases that exercise different parts of the type system, and
+    some edge cases like empty charsets, large charsets, etc.
 
 Ultimately, the quality of the tests is as important as the quantity. You
 need to test:
- - The compiler you implemented should be thoroughly tested. Put those tests in `CompilerSpec.scala.`. Make sure you cover the most basic cases as well as the more complicated and weird ones. 
- - The VM you implemented - make sure it behaves correctly for base cases, more complex cases and edge cases you can think of. Put these tests in `PowersetVmSpec.scala`, once it becomes available in the repo.
- - Make sure you test that your parse results are correct, not just that the string was successfully parsed
+  - Whether the type checker can distinguish the ambiguous and
+    unambiguous regexes.
+  - Whether the produced ambiguous subexpression is indeed the first
+    ambiguous subexpression.
+  - Whether the strings produced expose the ambiguity.
+  - Correctness of  `getString`.
 
 You can keep the tests you wrote for the previous assignment but you
 will not be graded on those for this assignment. For grading purposes,
-we will consider only the tests in `CompilerSpec.scala` and
-`PowersetVmSpec.scala`.
+we will consider only the ambiguity tests at the end of `RegexSpec.scala` and
+`getString` tests in `DfaSpec.scala`.
+
+See
+[OptionValues](http://www.scalatest.org/user_guide/using_OptionValues)
+trait in ScalaTest to see how you can handle the result of the type
+checker in your tests. Note that we use that trait in
+`RegexSpec.scala` we provide you so you need to make sure that
+`RegexSpec` extends `OptionValues` if you want to use the way of
+testing optional values we demonstrate in that file.
 
 ## Rules
 
@@ -93,7 +168,7 @@ your assignment, on the root directory of the repository you cloned,
 
   1. Make sure that you run the unit tests on CSIL and get the result
        you expect.
-  2. run `turnin assign4@cs162 src`.
+  2. run `turnin assign5@cs162 src`.
   3. Read the instructions on the screen and the list of files you are
        submitting carefully and submit the assignment only if you are
        sure that you are submitting all the files.

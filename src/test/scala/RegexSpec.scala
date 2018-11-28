@@ -1,8 +1,9 @@
 package edu.ucsb.cs.cs162.regex
 
 import org.scalatest._
+import edu.ucsb.cs.cs162.regex.derivative._
 
-class RegexSpec extends FlatSpec with Matchers {
+class RegexSpec extends FlatSpec with Matchers with OptionValues {
   //----------------------------------------------------------------------------
   // Fixtures and helpers.
   // ---------------------------------------------------------------------------
@@ -19,7 +20,6 @@ class RegexSpec extends FlatSpec with Matchers {
   val r = Chars('a') | Chars('b').+
   val r1 = Chars('x', 'y').* ~ r
   val r2 = Chars('y', 'x').+ ~ r
-
   //----------------------------------------------------------------------------
   // Tests.
   // ---------------------------------------------------------------------------
@@ -240,6 +240,7 @@ class RegexSpec extends FlatSpec with Matchers {
     (!c.*).nullable should equal (`∅`)
   }
 
+<<<<<<< HEAD
   it should "recognize a non-nullable regex 3" in {
     (c.* ~ `∅`).nullable should equal (`∅`)
   }
@@ -259,4 +260,26 @@ class RegexSpec extends FlatSpec with Matchers {
   it should "recognize a non-nullable regex 7" in {
     (`ε` ~ `∅`).nullable should equal (`∅`)
   }
+
+  behavior of "ambiguity type checker"
+
+  it should "find the ambiguous subexpression and a witness string in an ambiguous regex" in {
+    val a = Chars('a')
+    val b = Chars('b')
+    val r = a ~ (b | ε) ~ (b | ε)
+    val (ambiguousSubexpr, witness) = r.unambiguous.value
+    ambiguousSubexpr should equal ((b | ε) ~ (b | ε))
+    new DerivativeMachine(ambiguousSubexpr).eval(witness) shouldEqual true
+  }
+
+  // more tests...
+
+  it should "return None if the string is unambiguous" in {
+    val a = Chars('a')
+    val b = Chars('b')
+    val r = a ~ (b | ε)
+    r.unambiguous shouldEqual None
+  }
+
+  // more tests...
 }
