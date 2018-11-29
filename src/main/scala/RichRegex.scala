@@ -306,6 +306,42 @@ object `package` {
     // returns the ambiguous sub-expression (the first one for which ambiguity
     // is detected, if there is more than one) and a string that exposes the
     // ambiguity of that sub-expression.
-    def unambiguous: Option[(Regex, String)] = ???
-  }
+    def unambiguous: Option[(Regex, String)] = re match {
+      case Chars(c) => None
+
+      case `∅` => None
+
+      case `ε` => None
+
+      case re: Union => (re.a & re.b).empty match {
+        case true => (re.a.unambiguous, re.b.unambiguous) match {
+          case (amb: Option[(Regex, String)], _) => amb
+
+          case (None, amb: Option[(Regex, String)]) => amb
+
+          case (None, None) => None
+        }
+
+        case false => Some(re, "")
+      }
+
+      case re: Concatenate => re.a.overlap(re.b) match {
+        case `∅` => (re.a.unambiguous, re.b.unambiguous) match {
+          case (amb: Option[(Regex, String)], _) => amb
+
+          case (None, amb: Option[(Regex, String)]) => amb
+
+          case (None, None) => None
+        }
+
+        case _ => Some(re, "")
+      }
+
+      case re: KleeneStar => (re.a.overlap(re), re.a.nullable) match {
+        case (`∅`, `∅`) => re.a.unambiguous match {
+          case None => None
+
+          case Some(amb) => Some(amb)
+        }
+      }
 }

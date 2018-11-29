@@ -240,7 +240,6 @@ class RegexSpec extends FlatSpec with Matchers with OptionValues {
     (!c.*).nullable should equal (`∅`)
   }
 
-<<<<<<< HEAD
   it should "recognize a non-nullable regex 3" in {
     (c.* ~ `∅`).nullable should equal (`∅`)
   }
