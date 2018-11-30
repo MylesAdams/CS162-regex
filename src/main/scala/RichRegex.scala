@@ -315,36 +315,36 @@ object `package` {
 
       case Union(r1, r2) => (r1 & r2).empty match {
         case true => (r1.unambiguous, r2.unambiguous) match {
-          case (amb: Option[(Regex, String)], _) => amb
+          case (amb: Some[(Regex, String)], _) => amb
 
-          case (None, amb: Option[(Regex, String)]) => amb
-
-          case (None, None) => None
-        }
-
-        case false => Some(re, "")
-      }
-
-      case Concatenate(r1, r2) => r1.overlap(r2) match {
-        case `∅` => (r1.unambiguous, r2.unambiguous) match {
-          case (amb: Option[(Regex, String)], _) => amb
-
-          case (None, amb: Option[(Regex, String)]) => amb
+          case (None, amb: Some[(Regex, String)]) => amb
 
           case (None, None) => None
         }
 
-        case _ => Some(re, "")
+        case false => Some(re, DerivativeAnalysis.analyze(re).getString.get)
       }
 
-      case KleeneStar(r) => (r.overlap(re), r.nullable) match {
-        case (`∅`, `∅`) => r.unambiguous match {
+      case Concatenate(r1, r2) => r1.overlap(r2).empty match {
+        case true => (r1.unambiguous, r2.unambiguous) match {
+          case (amb: Some[(Regex, String)], _) => amb
+
+          case (None, amb: Some[(Regex, String)]) => amb
+
+          case (None, None) => None
+        }
+
+        case _ => Some(re, DerivativeAnalysis.analyze(re).getString.get)
+      }
+
+      case KleeneStar(r) => (r.overlap(re).empty, r.nullable) match {
+        case (true, `∅`) => r.unambiguous match {
           case None => None
 
-          case amb: Option[(Regex, String)] => amb
+          case amb: Some[(Regex, String)] => amb
         }
 
-        case _ => Some(re, "")
+        case _ => Some(re, DerivativeAnalysis.analyze(re).getString.get)
       }
     }
   }

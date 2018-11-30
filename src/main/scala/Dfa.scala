@@ -23,7 +23,45 @@ case class Dfa[State](delta: Transitions[State], init: State, fin: Set[State]) {
 
   // Returns a string that causes an arbitrary but non-looping path from the
   // init state to a final state, if such a path exists.
-  def getString: Option[String] = ???
+  def getString: Option[String] = {
+    def BFS(
+      todo: Set[State],
+      visited: Set[State],
+      strings: Map[State, String]
+    ): Map[State, String] = {
+      val todoAndStrings = delta(todo.head).foldLeft((todo.tail, strings)) {
+        (acc, csTuple) => {
+          visited contains csTuple._2 match {
+            case false if (todo.head != csTuple._2 && !csTuple._1.isEmpty)  =>
+              (acc._1 + csTuple._2,
+               acc._2 +
+                 (csTuple._2 -> (strings(todo.head) + csTuple._1.minElement)))
+
+            case _ => acc
+          }
+        }}
+
+      todoAndStrings._1.isEmpty match {
+        case true => strings
+
+        case false =>
+          BFS(todoAndStrings._1, visited + todo.head, todoAndStrings._2)
+      }
+
+    }
+
+    val stringsMap = BFS(Set[State](init), Set[State](), Map[State, String](init -> ""))
+
+    val validStrings = stringsMap.filterKeys(key => fin contains key)
+
+    validStrings.isEmpty match {
+      case false => Some(validStrings.head._2)
+
+      case true => None
+    }
+  }
+
+
 
   //----------------------------------------------------------------------------
   // Private details.
