@@ -307,11 +307,11 @@ object `package` {
     // is detected, if there is more than one) and a string that exposes the
     // ambiguity of that sub-expression.
     def unambiguous: Option[(Regex, String)] = re match {
-      case Chars(c) => None
-
       case `∅` => None
 
       case `ε` => None
+
+      case Chars(c) => None
 
       case Union(r1, r2) => (r1.unambiguous, r2.unambiguous) match {
         case (amb: Some[(Regex, String)], _) => amb
@@ -322,7 +322,7 @@ object `package` {
 
           case true => None
 
-          case false => Some(re, DerivativeAnalysis.analyze(re).getString.get)
+          case false => Some(re, DerivativeAnalysis.analyze(r1 & r2).getString.get)
         }
       }
 
@@ -335,7 +335,7 @@ object `package` {
 
             case true => None
 
-            case false => Some(re, DerivativeAnalysis.analyze(re).getString.get)
+            case false => Some(re, DerivativeAnalysis.analyze(r1.overlap(r2)).getString.get)
         }
 
       }
@@ -344,10 +344,26 @@ object `package` {
         case amb: Some[(Regex, String)] => amb
 
         case None => (r.nullable, r.overlap(re).empty) match {
+
           case (`∅`, true) => None
 
-          case _ => Some(re, DerivativeAnalysis.analyze(re).getString.get)
+          case (`ε`, true) => Some(re, DerivativeAnalysis.analyze(re).getString.get)
+
+          case _ =>
+            Some(re, DerivativeAnalysis.analyze(r.overlap(re)).getString.get)
         }
+      }
+
+      case Capture(str, r) => r.unambiguous
+
+      case _: Intersect => {
+        assert(false, "Do not handle Intersect")
+        None
+      }
+
+      case _: Complement => {
+        assert(false, "Do not handle Complement")
+        None
       }
     }
   }

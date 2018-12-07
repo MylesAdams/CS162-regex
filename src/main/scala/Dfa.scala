@@ -3,6 +3,7 @@
 package edu.ucsb.cs.cs162.dfa
 
 import edu.ucsb.cs.cs162.range_set._
+import scala.collection.immutable.Queue
 
 object `package` {
   type Transitions[State] = Map[State, Seq[(CharSet, State)]]
@@ -25,40 +26,37 @@ case class Dfa[State](delta: Transitions[State], init: State, fin: Set[State]) {
   // init state to a final state, if such a path exists.
   def getString: Option[String] = {
     def BFS(
-      todo: Set[State],
+      todo: Queue[(State, String)],
       visited: Set[State],
-      strings: Map[State, String]
-    ): Map[State, String] = {
-      val todoAndStrings = delta(todo.head).foldLeft((todo.tail, strings)) {
-        (acc, csTuple) => {
-          visited contains csTuple._2 match {
-            case false if (todo.head != csTuple._2 && !csTuple._1.isEmpty)  =>
-              (acc._1 + csTuple._2,
-               acc._2 +
-                 (csTuple._2 -> (strings(todo.head) + csTuple._1.minElement)))
+    ): Option[String] = fin contains todo.head._1 match {
+      case false if delta contains todo.head._1 => {
+        val newTodo = delta(todo.head._1).foldLeft(todo.tail) {
+          (acc, csTuple) => {
+            visited contains csTuple._2 match {
 
-            case _ => acc
+              case false if (todo.head != csTuple._2 && !csTuple._1.isEmpty) =>
+                acc :+ (csTuple._2, todo.head._2 + csTuple._1.minElement.get)
+
+              case true => acc
+            }
           }
-        }}
+        }
 
-      todoAndStrings._1.isEmpty match {
-        case true => strings
+        newTodo.isEmpty match {
 
-        case false =>
-          BFS(todoAndStrings._1, visited + todo.head, todoAndStrings._2)
+          case false => BFS(newTodo, visited + todo.head._1)
+
+          case true => None
+        }
       }
 
+      case true => Some(todo.head._2)
+
+      case _ => None
     }
 
-    val stringsMap = BFS(Set[State](init), Set[State](), Map[State, String](init -> ""))
+    BFS(Queue[(State, String)]((init, "")), Set[State]())
 
-    val validStrings = stringsMap.filterKeys(key => fin contains key)
-
-    validStrings.isEmpty match {
-      case false => Some(validStrings.head._2)
-
-      case true => None
-    }
   }
 
 
